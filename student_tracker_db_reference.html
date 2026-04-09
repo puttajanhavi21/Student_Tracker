@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Tracker — PostgreSQL Database Reference</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --border: #30363d; --border2: #484f58;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+    --blue: #58a6ff; --blue-dim: #1f6feb22;
+    --green: #3fb950; --green-dim: #196c2e22;
+    --amber: #d29922; --amber-dim: #b08b0022;
+    --red: #f85149; --red-dim: #da363322;
+    --purple: #bc8cff; --purple-dim: #6e40c922;
+    --teal: #39d353; --cyan: #56d364;
+    --accent: #58a6ff;
+    --radius: 8px; --radius-lg: 12px;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ── SIDEBAR ─────────────────────────────────── */
+  .sidebar {
+    width: 260px; flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-header {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .logo { font-size: 13px; font-weight: 600; color: var(--blue); letter-spacing: 0.08em; text-transform: uppercase; }
+  .logo-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text3); padding: 10px 20px 4px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 20px; cursor: pointer;
+    font-size: 13px; color: var(--text2);
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: var(--blue-dim); color: var(--blue); border-left-color: var(--blue); }
+
+  .nav-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: var(--text3);
+  }
+  .nav-dot.blue { background: var(--blue); }
+  .nav-dot.green { background: var(--green); }
+  .nav-dot.amber { background: var(--amber); }
+  .nav-dot.purple { background: var(--purple); }
+  .nav-dot.red { background: var(--red); }
+  .nav-dot.teal { background: var(--teal); }
+  .nav-dot.cyan { background: var(--cyan); }
+
+  /* ── MAIN ────────────────────────────────────── */
+  .main { flex: 1; padding: 40px 48px; max-width: 1100px; overflow: hidden; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── SECTION HEADERS ─────────────────────────── */
+  .page-title {
+    font-size: 22px; font-weight: 600; color: var(--text);
+    margin-bottom: 8px;
+  }
+  .page-subtitle { font-size: 13px; color: var(--text2); margin-bottom: 32px; line-height: 1.7; }
+
+  h2 {
+    font-size: 15px; font-weight: 600; color: var(--text);
+    margin: 32px 0 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2::before {
+    content: ''; display: block;
+    width: 3px; height: 16px; border-radius: 2px;
+    background: var(--blue);
+  }
+
+  /* ── CARDS ───────────────────────────────────── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .card-desc { font-size: 12px; color: var(--text2); margin-bottom: 14px; line-height: 1.6; }
+
+  /* ── TABLE SCHEMA ────────────────────────────── */
+  .schema-table {
+    width: 100%; border-collapse: collapse;
+    font-family: var(--mono); font-size: 11.5px;
+  }
+
+  .schema-table th {
+    background: var(--bg3); color: var(--text3);
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 7px 12px; text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  .schema-table td {
+    padding: 6px 12px; border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .schema-table tr:last-child td { border-bottom: none; }
+  .schema-table tr:hover td { background: var(--bg3); }
+
+  .col-name { color: var(--blue); }
+  .col-type { color: var(--green); }
+  .col-constraint { color: var(--amber); font-size: 11px; }
+  .col-desc { color: var(--text2); font-size: 11px; font-family: var(--sans); }
+
+  .pk-badge {
+    display: inline-block; background: var(--amber-dim);
+    color: var(--amber); font-size: 9px; font-weight: 600;
+    padding: 1px 5px; border-radius: 3px; margin-left: 6px;
+    letter-spacing: 0.05em; vertical-align: middle;
+  }
+
+  .fk-badge {
+    display: inline-block; background: var(--purple-dim);
+    color: var(--purple); font-size: 9px; font-weight: 600;
+    padding: 1px 5px; border-radius: 3px; margin-left: 6px;
+    letter-spacing: 0.05em; vertical-align: middle;
+  }
+
+  /* ── CODE BLOCKS ─────────────────────────────── */
+  .code-block {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 20px;
+    font-family: var(--mono); font-size: 12px;
+    overflow-x: auto; white-space: pre;
+    line-height: 1.7; margin: 0 0 16px;
+    color: var(--text2);
+  }
+
+  .code-block .kw  { color: #ff7b72; }
+  .code-block .fn  { color: #d2a8ff; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .cmt { color: var(--text3); font-style: italic; }
+  .code-block .num { color: #79c0ff; }
+  .code-block .type{ color: #7ee787; }
+
+  /* ── RELATIONSHIP MAP ─────────────────────────── */
+  .rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+
+  .rel-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+
+  .rel-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+
+  .rel-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--text2);
+    padding: 3px 0;
+  }
+
+  .rel-arrow { color: var(--blue); font-family: var(--mono); }
+  .rel-type {
+    font-size: 9px; font-weight: 600; padding: 1px 6px;
+    border-radius: 3px; letter-spacing: 0.05em;
+    text-transform: uppercase; margin-left: auto;
+  }
+  .rel-1m  { background: var(--blue-dim); color: var(--blue); }
+  .rel-11  { background: var(--green-dim); color: var(--green); }
+  .rel-mm  { background: var(--purple-dim); color: var(--purple); }
+
+  /* ── BADGE PILLS ─────────────────────────────── */
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em;
+  }
+  .badge-blue   { background: var(--blue-dim);   color: var(--blue); }
+  .badge-green  { background: var(--green-dim);  color: var(--green); }
+  .badge-amber  { background: var(--amber-dim);  color: var(--amber); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); }
+  .badge-red    { background: var(--red-dim);    color: var(--red); }
+
+  /* ── INDEX TABLE ─────────────────────────────── */
+  .idx-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .idx-table th {
+    background: var(--bg3); color: var(--text3); font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 7px 12px; text-align: left;
+    border-bottom: 1px solid var(--border); font-weight: 500;
+  }
+  .idx-table td {
+    padding: 7px 12px; border-bottom: 1px solid var(--border);
+    vertical-align: top; color: var(--text2);
+  }
+  .idx-table tr:last-child td { border-bottom: none; }
+  .idx-name { color: var(--amber); font-family: var(--mono); font-size: 11px; }
+  .idx-on   { color: var(--blue);  font-family: var(--mono); font-size: 11px; }
+
+  /* ── STATS ROW ───────────────────────────────── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .stat-num { font-size: 24px; font-weight: 600; color: var(--text); line-height: 1.1; }
+  .stat-label { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* ── ER DIAGRAM ──────────────────────────────── */
+  .er-section { overflow-x: auto; }
+  .er-svg { min-width: 900px; }
+
+  /* ── DESIGN NOTES ────────────────────────────── */
+  .note {
+    background: var(--bg3); border-left: 3px solid var(--blue);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 12px 16px; margin: 12px 0;
+    font-size: 12px; color: var(--text2); line-height: 1.7;
+  }
+  .note strong { color: var(--blue); }
+
+  .warn {
+    background: var(--amber-dim); border-left: 3px solid var(--amber);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 12px 16px; margin: 12px 0;
+    font-size: 12px; color: var(--text2); line-height: 1.7;
+  }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- ══════════════════════════════════════════ SIDEBAR ══ -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">Student Tracker</div>
+    <div class="logo-sub">PostgreSQL Schema v1.0</div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Overview</div>
+    <div class="nav-item active" onclick="show('overview',this)">
+      <span class="nav-dot blue"></span> Design decisions
+    </div>
+    <div class="nav-item" onclick="show('er',this)">
+      <span class="nav-dot blue"></span> ER relationships
+    </div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Schema sections</div>
+    <div class="nav-item" onclick="show('users',this)">
+      <span class="nav-dot green"></span> Users & auth
+    </div>
+    <div class="nav-item" onclick="show('academic',this)">
+      <span class="nav-dot blue"></span> Academic
+    </div>
+    <div class="nav-item" onclick="show('tasks',this)">
+      <span class="nav-dot amber"></span> Tasks & to-dos
+    </div>
+    <div class="nav-item" onclick="show('events',this)">
+      <span class="nav-dot purple"></span> Events & reminders
+    </div>
+    <div class="nav-item" onclick="show('notes',this)">
+      <span class="nav-dot teal"></span> Notes & projects
+    </div>
+    <div class="nav-item" onclick="show('fitness',this)">
+      <span class="nav-dot cyan"></span> Fitness
+    </div>
+    <div class="nav-item" onclick="show('mental',this)">
+      <span class="nav-dot red"></span> Mental health
+    </div>
+    <div class="nav-item" onclick="show('notifications',this)">
+      <span class="nav-dot blue"></span> Notifications & export
+    </div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Queries & Performance</div>
+    <div class="nav-item" onclick="show('queries',this)">
+      <span class="nav-dot green"></span> Important queries
+    </div>
+    <div class="nav-item" onclick="show('indexes',this)">
+      <span class="nav-dot amber"></span> Indexes & tuning
+    </div>
+    <div class="nav-item" onclick="show('bottlenecks',this)">
+      <span class="nav-dot red"></span> Bottlenecks
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════ MAIN ══ -->
+<main class="main">
+
+<!-- ─────────── OVERVIEW ─────────── -->
+<div id="page-overview" class="page active">
+  <div class="page-title">Schema design decisions</div>
+  <div class="page-subtitle">
+    A 3NF-normalised, production-ready PostgreSQL schema for a full-stack student productivity platform.
+    Designed for correctness, performance, and long-term maintainability.
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num">28</div><div class="stat-label">Tables</div></div>
+    <div class="stat-card"><div class="stat-num">8</div><div class="stat-label">Custom ENUMs</div></div>
+    <div class="stat-card"><div class="stat-num">30+</div><div class="stat-label">Indexes</div></div>
+    <div class="stat-card"><div class="stat-num">3NF</div><div class="stat-label">Normal form</div></div>
+  </div>
+
+  <h2>Core design principles</h2>
+
+  <div class="card">
+    <div class="card-title">🔑 Identity strategy</div>
+    <div class="card-desc">All primary keys use <code>SERIAL</code> (auto-increment integer). Surrogate PKs are used throughout — never natural keys like <code>mahe_id</code> or <code>course_code</code> as foreign keys. Natural keys appear as UNIQUE columns for lookups but not as FK targets.</div>
+    <div class="tag-list">
+      <span class="badge badge-green">SERIAL PKs</span>
+      <span class="badge badge-blue">Surrogate keys</span>
+      <span class="badge badge-amber">UNIQUE naturals</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📐 Normalisation</div>
+    <div class="card-desc">
+      The schema is in 3NF. Key decisions: (1) Course catalogue is separate from enrolments — course data doesn't repeat per student. (2) Grade components and assignments are separate tables — not columns on enrolment. (3) Labels and tags are separate entities with junction tables. (4) User preferences are separated from users to keep the core table lean. (5) Fitness goals are versioned with date ranges rather than overwritten.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔗 Foreign key behaviour</div>
+    <div class="card-desc">
+      <strong>ON DELETE CASCADE</strong> — used when child rows have no meaning without the parent (e.g., tasks, notes, mood logs belong to a user). <br>
+      <strong>ON DELETE SET NULL</strong> — used when the child row can exist independently but loses its reference (e.g., a task's link to an assignment can be nulled without deleting the task). <br>
+      <strong>ON DELETE RESTRICT</strong> — used to prevent accidental deletion of shared catalogue data (e.g., courses referenced by enrolments).
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏷️ ENUM vs CHECK</div>
+    <div class="card-desc">
+      PostgreSQL <code>CREATE TYPE ... AS ENUM</code> is used for multi-table shared types (task_status, mood_type, grade_type). Inline <code>CHECK</code> constraints are used for single-table categorical fields (project status, theme preference) to avoid over-engineering the type system.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔏 Polymorphic references</div>
+    <div class="card-desc">
+      The <code>reminders</code> table uses a controlled polymorphic pattern — three nullable FK columns with a CHECK constraint enforcing exactly one is non-null. This avoids EAV anti-patterns while maintaining referential integrity per target type.
+    </div>
+    <div class="note"><strong>Pattern used:</strong> CHECK ( (event_id IS NOT NULL)::INT + (task_id IS NOT NULL)::INT + (assignment_id IS NOT NULL)::INT = 1 )</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🕒 Timestamp convention</div>
+    <div class="card-desc">All timestamp columns use <code>TIMESTAMP WITH TIME ZONE</code> (timestamptz). PostgreSQL stores these as UTC internally and converts on retrieval. The application layer specifies user timezone (stored in <code>user_preferences.timezone</code>). <code>created_at</code> defaults to <code>NOW()</code>; <code>updated_at</code> should be maintained by application-level trigger or ORM hook.</div>
+  </div>
+</div>
+
+<!-- ─────────── ER RELATIONSHIPS ─────────── -->
+<div id="page-er" class="page">
+  <div class="page-title">Entity-relationship map</div>
+  <div class="page-subtitle">Text-form ER description with cardinalities. Every relationship is explicitly documented.</div>
+
+  <div class="rel-grid">
+
+    <div class="rel-card">
+      <div class="rel-title">🧑 Users domain</div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:1──→</span><span>user_preferences</span><span class="rel-type rel-11">1:1</span></div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>user_sessions</span><span class="rel-type rel-1m">1:N</span></div>
+    </div>
+
+    <div class="rel-card">
+      <div class="rel-title">📚 Academic domain</div>
+      <div class="rel-item"><span>courses</span><span class="rel-arrow">←──N:M──→</span><span>users (via enrolments)</span><span class="rel-type rel-mm">N:M</span></div>
+      <div class="rel-item"><span>enrolments</span><span class="rel-arrow">──1:N──→</span><span>assignments</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>enrolments</span><span class="rel-arrow">──1:N──→</span><span>grade_components</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>enrolments</span><span class="rel-arrow">──1:N──→</span><span>attendance_records</span><span class="rel-type rel-1m">1:N</span></div>
+    </div>
+
+    <div class="rel-card">
+      <div class="rel-title">✅ Tasks domain</div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>tasks</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>task_labels</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>tasks ←──</span><span class="rel-arrow">N:M──→</span><span>task_labels</span><span class="rel-type rel-mm">N:M</span></div>
+      <div class="rel-item"><span>tasks</span><span class="rel-arrow">──1:N──→</span><span>tasks (subtasks)</span><span class="rel-type rel-1m">self-ref</span></div>
+    </div>
+
+    <div class="rel-card">
+      <div class="rel-title">📅 Events & reminders</div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>events</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>reminders</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>events/tasks/assignments</span><span class="rel-arrow">──→</span><span>reminders (poly)</span><span class="rel-type rel-1m">poly</span></div>
+    </div>
+
+    <div class="rel-card">
+      <div class="rel-title">📝 Notes domain</div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>note_folders</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>note_folders</span><span class="rel-arrow">──1:N──→</span><span>note_folders (nested)</span><span class="rel-type rel-1m">self-ref</span></div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>notes</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>notes ←──</span><span class="rel-arrow">N:M──→</span><span>note_tags</span><span class="rel-type rel-mm">N:M</span></div>
+    </div>
+
+    <div class="rel-card">
+      <div class="rel-title">🏗️ Projects domain</div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>projects</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>projects</span><span class="rel-arrow">──1:N──→</span><span>project_milestones</span><span class="rel-type rel-1m">1:N</span></div>
+    </div>
+
+    <div class="rel-card">
+      <div class="rel-title">🏃 Fitness domain</div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>fitness_daily_logs</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>workout_sessions</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>fitness_goals</span><span class="rel-type rel-1m">1:N</span></div>
+    </div>
+
+    <div class="rel-card">
+      <div class="rel-title">🧠 Mental health domain</div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>mood_logs</span><span class="rel-type rel-1m">1:N</span></div>
+      <div class="rel-item"><span>users</span><span class="rel-arrow">──1:N──→</span><span>journal_entries</span><span class="rel-type rel-1m">1:N</span></div>
+    </div>
+
+  </div>
+
+  <h2>Cross-domain optional links</h2>
+  <div class="note">
+    <strong>Academic linkage pattern:</strong> tasks, events, reminders, and notes all carry an optional <code>enrolment_id</code> FK (SET NULL on delete). This enables context-aware features ("tasks related to DBMS") without requiring the link. It's <em>optional coupling</em>, not a hard dependency.
+  </div>
+  <div class="note">
+    <strong>Task → assignment link:</strong> A task can optionally reference an assignment row. This allows the to-do system to surface academic deadlines automatically without a separate sync mechanism.
+  </div>
+</div>
+
+<!-- ─────────── USERS ─────────── -->
+<div id="page-users" class="page">
+  <div class="page-title">Users & authentication</div>
+  <div class="page-subtitle">Core identity, session management, and preferences. The <code>users</code> table is intentionally lean — no aggregated data is stored here.</div>
+
+  <h2>users</h2>
+  <div class="card">
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">user_id <span class="pk-badge">PK</span></td><td class="col-type">SERIAL</td><td class="col-constraint">PRIMARY KEY</td><td class="col-desc">Surrogate key</td></tr>
+        <tr><td class="col-name">mahe_id</td><td class="col-type">VARCHAR(20)</td><td class="col-constraint">NOT NULL UNIQUE</td><td class="col-desc">Institutional ID, e.g. "230905001"</td></tr>
+        <tr><td class="col-name">full_name</td><td class="col-type">VARCHAR(120)</td><td class="col-constraint">NOT NULL</td><td class="col-desc"></td></tr>
+        <tr><td class="col-name">email</td><td class="col-type">VARCHAR(200)</td><td class="col-constraint">NOT NULL UNIQUE</td><td class="col-desc">Manipal domain email</td></tr>
+        <tr><td class="col-name">password_hash</td><td class="col-type">VARCHAR(255)</td><td class="col-constraint">NOT NULL</td><td class="col-desc">bcrypt/argon2 — never plaintext</td></tr>
+        <tr><td class="col-name">semester</td><td class="col-type">SMALLINT</td><td class="col-constraint">CHECK (1–12)</td><td class="col-desc"></td></tr>
+        <tr><td class="col-name">is_active</td><td class="col-type">BOOLEAN</td><td class="col-constraint">NOT NULL DEFAULT TRUE</td><td class="col-desc">Soft delete / suspension flag</td></tr>
+        <tr><td class="col-name">last_login_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-constraint"></td><td class="col-desc">Updated on each login</td></tr>
+        <tr><td class="col-name">created_at / updated_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-constraint">NOT NULL DEFAULT NOW()</td><td class="col-desc">Audit trail</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>user_sessions</h2>
+  <div class="card">
+    <div class="card-desc">Supports multi-device JWT refresh token management. Each device gets its own session row.</div>
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">session_id <span class="pk-badge">PK</span></td><td class="col-type">SERIAL</td><td class="col-desc"></td></tr>
+        <tr><td class="col-name">user_id <span class="fk-badge">FK</span></td><td class="col-type">INT</td><td class="col-desc">CASCADE delete</td></tr>
+        <tr><td class="col-name">refresh_token</td><td class="col-type">VARCHAR(512)</td><td class="col-desc">UNIQUE — used to validate refresh calls</td></tr>
+        <tr><td class="col-name">expires_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-desc">Checked on every token refresh</td></tr>
+        <tr><td class="col-name">ip_address</td><td class="col-type">INET</td><td class="col-desc">PostgreSQL native IP type</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─────────── ACADEMIC ─────────── -->
+<div id="page-academic" class="page">
+  <div class="page-title">Academic tracking</div>
+  <div class="page-subtitle">Courses, enrolments, assignments, grade components, and attendance. The <code>courses</code> table is a shared catalogue — never duplicated per user.</div>
+
+  <div class="note"><strong>Key decision:</strong> <code>enrolments</code> is the central join between users and courses. All academic data (assignments, grades, attendance) hangs off <code>enrolment_id</code>, not <code>user_id + course_id</code>. This avoids compound FK complexity and correctly models course-instance data.</div>
+
+  <h2>enrolments</h2>
+  <div class="card">
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">enrolment_id <span class="pk-badge">PK</span></td><td class="col-type">SERIAL</td><td class="col-constraint">PRIMARY KEY</td><td class="col-desc"></td></tr>
+        <tr><td class="col-name">user_id <span class="fk-badge">FK</span></td><td class="col-type">INT</td><td class="col-constraint">CASCADE</td><td class="col-desc"></td></tr>
+        <tr><td class="col-name">course_id <span class="fk-badge">FK</span></td><td class="col-type">INT</td><td class="col-constraint">RESTRICT</td><td class="col-desc">Can't delete course with enrolments</td></tr>
+        <tr><td class="col-name">semester + academic_year</td><td class="col-type">SMALLINT</td><td class="col-constraint">CHECK ranges</td><td class="col-desc">Supports retake history</td></tr>
+        <tr><td class="col-name">final_grade</td><td class="col-type">grade_type</td><td class="col-constraint">ENUM (nullable)</td><td class="col-desc">S/A/B/C/D/E/F/I/W</td></tr>
+        <tr><td class="col-name">grade_points</td><td class="col-type">NUMERIC(3,2)</td><td class="col-constraint">CHECK 0–10</td><td class="col-desc">For GPA calculation</td></tr>
+        <tr><td colspan="4" style="padding:6px 12px"><span class="badge badge-amber">UNIQUE(user_id, course_id, semester, academic_year)</span></span> — prevents duplicate enrolment</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>assignments</h2>
+  <div class="card">
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">max_marks / obtained_marks</td><td class="col-type">NUMERIC(6,2)</td><td class="col-desc">CHECK obtained ≤ max</td></tr>
+        <tr><td class="col-name">weightage</td><td class="col-type">NUMERIC(5,2)</td><td class="col-desc">% contribution to total grade (0–100)</td></tr>
+        <tr><td class="col-name">is_submitted</td><td class="col-type">BOOLEAN</td><td class="col-desc">Default FALSE; set when submitted_at is recorded</td></tr>
+        <tr><td class="col-name">feedback</td><td class="col-type">TEXT</td><td class="col-desc">Instructor feedback — nullable</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>attendance_records</h2>
+  <div class="card">
+    <div class="card-desc">One row per class per enrolment. UNIQUE(enrolment_id, class_date) prevents duplicate marking.</div>
+    <div class="warn">⚠️ To calculate attendance %, query: <code>COUNT(*) FILTER (WHERE is_present) / COUNT(*) * 100</code> — never store this as a column (it becomes stale).</div>
+  </div>
+</div>
+
+<!-- ─────────── TASKS ─────────── -->
+<div id="page-tasks" class="page">
+  <div class="page-title">Task / To-do system</div>
+  <div class="page-subtitle">Full-featured task management with labels, priorities, subtasks, and optional academic context linking.</div>
+
+  <h2>tasks</h2>
+  <div class="card">
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">status</td><td class="col-type">task_status</td><td class="col-desc">ENUM: pending / in_progress / completed / cancelled</td></tr>
+        <tr><td class="col-name">priority</td><td class="col-type">task_priority</td><td class="col-desc">ENUM: low / medium / high / critical</td></tr>
+        <tr><td class="col-name">category</td><td class="col-type">task_category</td><td class="col-desc">ENUM: academic / personal / fitness / event / project / other</td></tr>
+        <tr><td class="col-name">enrolment_id <span class="fk-badge">FK</span></td><td class="col-type">INT</td><td class="col-desc">SET NULL — optional academic link</td></tr>
+        <tr><td class="col-name">assignment_id <span class="fk-badge">FK</span></td><td class="col-type">INT</td><td class="col-desc">SET NULL — direct link to assignment deadline</td></tr>
+        <tr><td class="col-name">parent_task_id <span class="fk-badge">FK</span></td><td class="col-type">INT → tasks</td><td class="col-desc">Self-reference for subtasks</td></tr>
+        <tr><td class="col-name">recurrence_rule</td><td class="col-type">VARCHAR(100)</td><td class="col-desc">iCal RRULE format, e.g. "FREQ=DAILY;BYDAY=MO,TU,WE"</td></tr>
+        <tr><td class="col-name">completed_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-desc">Set when status → completed; enables completion-time analytics</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>task_labels + task_label_map</h2>
+  <div class="card">
+    <div class="card-desc">User-defined labels (not hard-coded). Junction table <code>task_label_map</code> implements the N:M relationship. Labels include a hex colour for UI colour-coding.</div>
+    <div class="note"><strong>Why separate from category ENUM?</strong> ENUMs are fixed at schema level. Labels are user-defined and unlimited. Both coexist: ENUM for system-level filtering, labels for personal tagging.</div>
+  </div>
+</div>
+
+<!-- ─────────── EVENTS ─────────── -->
+<div id="page-events" class="page">
+  <div class="page-title">Events & reminders</div>
+  <div class="page-subtitle">Calendar events with recurrence support and a polymorphic reminder system that can reference events, tasks, or assignments.</div>
+
+  <h2>events</h2>
+  <div class="card">
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">event_type</td><td class="col-type">event_type</td><td class="col-desc">ENUM: lecture / exam / assignment_due / personal / club / other</td></tr>
+        <tr><td class="col-name">starts_at / ends_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-desc">CHECK ends_at ≥ starts_at</td></tr>
+        <tr><td class="col-name">is_all_day</td><td class="col-type">BOOLEAN</td><td class="col-desc">When TRUE, time component of starts_at is ignored in UI</td></tr>
+        <tr><td class="col-name">recurrence_rule</td><td class="col-type">VARCHAR(100)</td><td class="col-desc">iCal RRULE string for recurring events</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>reminders (polymorphic)</h2>
+  <div class="card">
+    <div class="card-desc">A single reminder table covers all entity types. Exactly one of <code>event_id</code>, <code>task_id</code>, <code>assignment_id</code> must be non-null — enforced by CHECK constraint.</div>
+    <div class="code-block"><span class="kw">CHECK</span> (
+    (event_id <span class="kw">IS NOT NULL</span>)::<span class="type">INT</span> +
+    (task_id <span class="kw">IS NOT NULL</span>)::<span class="type">INT</span> +
+    (assignment_id <span class="kw">IS NOT NULL</span>)::<span class="type">INT</span> = <span class="num">1</span>
+)</div>
+    <div class="note"><strong>Status lifecycle:</strong> pending → sent (background job fires notification) → dismissed (user action). The scheduler queries <code>WHERE status = 'pending' AND remind_at &lt;= NOW()</code> — covered by a partial index.</div>
+  </div>
+</div>
+
+<!-- ─────────── NOTES ─────────── -->
+<div id="page-notes" class="page">
+  <div class="page-title">Notes & personal projects</div>
+  <div class="page-subtitle">Hierarchical note folders, full-text searchable notes with tagging, and project tracking with milestones.</div>
+
+  <h2>note_folders</h2>
+  <div class="card">
+    <div class="card-desc">Self-referential tree structure via <code>parent_folder_id</code>. Supports arbitrary nesting depth. UNIQUE(user_id, folder_name, parent_folder_id) prevents duplicate folder names within the same parent.</div>
+    <div class="warn">⚠️ For deep tree traversal, use PostgreSQL's <code>WITH RECURSIVE</code> CTEs. Do not model this as an adjacency list without recursive queries in mind.</div>
+  </div>
+
+  <h2>notes</h2>
+  <div class="card">
+    <div class="card-desc">Indexed for full-text search via <code>pg_trgm</code> GIN indexes on both title and content columns. Supports fuzzy matching (ILIKE queries on trigrams).</div>
+    <div class="code-block"><span class="kw">CREATE INDEX</span> idx_notes_title_trgm <span class="kw">ON</span> notes <span class="kw">USING</span> GIN (title gin_trgm_ops);
+<span class="kw">CREATE INDEX</span> idx_notes_content_trgm <span class="kw">ON</span> notes <span class="kw">USING</span> GIN (content gin_trgm_ops);
+
+<span class="cmt">-- Query pattern:</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> notes
+<span class="kw">WHERE</span> user_id = <span class="num">1</span>
+  <span class="kw">AND</span> (title <span class="kw">ILIKE</span> <span class="str">'%normalization%'</span> <span class="kw">OR</span> content <span class="kw">ILIKE</span> <span class="str">'%normalization%'</span>);</div>
+  </div>
+
+  <h2>projects</h2>
+  <div class="card">
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">tech_stack</td><td class="col-type">TEXT[]</td><td class="col-desc">PostgreSQL array — correct for a bounded list of strings. Use <code>@&gt;</code> for "contains technology" queries.</td></tr>
+        <tr><td class="col-name">status</td><td class="col-type">VARCHAR(40)</td><td class="col-desc">CHECK: planning / active / on_hold / completed / abandoned</td></tr>
+        <tr><td class="col-name">repo_url / demo_url</td><td class="col-type">TEXT</td><td class="col-desc">Nullable — validate URL format at application layer</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─────────── FITNESS ─────────── -->
+<div id="page-fitness" class="page">
+  <div class="page-title">Fitness tracking</div>
+  <div class="page-subtitle">Daily logs, versioned goals, and individual workout sessions. The three-table design prevents the daily summary table from becoming overloaded.</div>
+
+  <h2>fitness_daily_logs</h2>
+  <div class="card">
+    <div class="card-desc">One row per user per day. UNIQUE(user_id, log_date) enforced. All metrics are nullable — a user might only log steps without food.</div>
+    <div class="note"><strong>Design choice:</strong> All daily aggregates live here (steps, calories, water, sleep, weight). Granular workout data goes in <code>workout_sessions</code>. This avoids recalculating daily totals on every query.</div>
+  </div>
+
+  <h2>fitness_goals (versioned)</h2>
+  <div class="card">
+    <div class="card-desc">Goals are time-ranged: <code>effective_from</code> and nullable <code>effective_to</code>. This preserves history and allows future goal scheduling. A LATERAL subquery retrieves the currently active goal for any given date.</div>
+    <div class="code-block"><span class="cmt">-- Get active step goal for a given date:</span>
+<span class="kw">SELECT</span> target_value <span class="kw">FROM</span> fitness_goals
+<span class="kw">WHERE</span> user_id = <span class="num">1</span>
+  <span class="kw">AND</span> goal_type = <span class="str">'steps'</span>
+  <span class="kw">AND</span> effective_from <= CURRENT_DATE
+  <span class="kw">AND</span> (effective_to <span class="kw">IS NULL OR</span> effective_to >= CURRENT_DATE)
+<span class="kw">ORDER BY</span> effective_from <span class="kw">DESC LIMIT</span> <span class="num">1</span>;</div>
+  </div>
+</div>
+
+<!-- ─────────── MENTAL HEALTH ─────────── -->
+<div id="page-mental" class="page">
+  <div class="page-title">Mental health tracking</div>
+  <div class="page-subtitle">Mood logging and private journal entries. Privacy-first design — all notes are nullable and journal entries default to private.</div>
+
+  <h2>mood_logs</h2>
+  <div class="card">
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">mood</td><td class="col-type">mood_type</td><td class="col-desc">ENUM: very_sad / sad / neutral / happy / very_happy</td></tr>
+        <tr><td class="col-name">energy_level / stress_level</td><td class="col-type">SMALLINT</td><td class="col-desc">CHECK 1–10 scale</td></tr>
+        <tr><td class="col-name">notes</td><td class="col-type">TEXT</td><td class="col-desc">Optional — users may not want to annotate</td></tr>
+        <tr><td colspan="3"><span class="badge badge-amber">UNIQUE(user_id, date_trunc('hour', logged_at))</span> — prevents spam/duplicate logs within an hour</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>journal_entries</h2>
+  <div class="card">
+    <div class="card-desc">Separate from notes and mood logs — journaling is a distinct mental health activity. <code>is_private</code> defaults to TRUE. Future: could encrypt content at rest using <code>pgcrypto</code>.</div>
+    <div class="note"><strong>Privacy consideration:</strong> In production, consider column-level encryption for <code>mood_logs.notes</code> and <code>journal_entries.content</code> using pgcrypto's <code>pgp_sym_encrypt()</code>. These fields contain personally sensitive data.</div>
+  </div>
+</div>
+
+<!-- ─────────── NOTIFICATIONS ─────────── -->
+<div id="page-notifications" class="page">
+  <div class="page-title">Notifications & data export</div>
+
+  <h2>notifications</h2>
+  <div class="card">
+    <div class="card-desc">Soft-polymorphic: <code>source_table</code> (VARCHAR) + <code>source_id</code> (INT) identify the originating entity without FK constraints. This is intentional — notifications are an audit/inbox layer that should not cascade-delete when source rows are removed.</div>
+    <div class="note"><strong>Query pattern:</strong> The dashboard fetches unread count via <code>WHERE user_id = ? AND is_read = FALSE</code>, covered by a partial index. Mark-all-read uses a single UPDATE with timestamp.</div>
+  </div>
+
+  <h2>export_requests</h2>
+  <div class="card">
+    <div class="card-desc">Schema support for PDF/Excel exports. Export jobs are queued asynchronously — this table tracks state (queued → processing → completed/failed) and the generated file URL (S3 or local storage). The application reads scope to determine what data to include.</div>
+    <table class="schema-table">
+      <thead><tr><th>Column</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">format</td><td class="col-desc">ENUM: pdf / excel / csv</td></tr>
+        <tr><td class="col-name">scope</td><td class="col-desc">"all", "academic", "fitness", "tasks" — controls export content</td></tr>
+        <tr><td class="col-name">file_url</td><td class="col-desc">Populated by background worker after generation</td></tr>
+        <tr><td class="col-name">status</td><td class="col-desc">CHECK: queued / processing / completed / failed</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─────────── QUERIES ─────────── -->
+<div id="page-queries" class="page">
+  <div class="page-title">Important queries</div>
+  <div class="page-subtitle">Production-ready SQL for the four core query patterns, plus bonus queries for fitness and mood trends.</div>
+
+  <h2>Q1 — All tasks for a user (with labels)</h2>
+  <div class="code-block"><span class="kw">SELECT</span>
+    t.task_id, t.title, t.status, t.priority, t.category, t.due_date,
+    <span class="fn">ARRAY_AGG</span>(tl.label_name <span class="kw">ORDER BY</span> tl.label_name)
+        <span class="kw">FILTER</span> (<span class="kw">WHERE</span> tl.label_name <span class="kw">IS NOT NULL</span>) <span class="kw">AS</span> labels
+<span class="kw">FROM</span> tasks t
+<span class="kw">LEFT JOIN</span> task_label_map tlm <span class="kw">ON</span> tlm.task_id  = t.task_id
+<span class="kw">LEFT JOIN</span> task_labels tl     <span class="kw">ON</span> tl.label_id = tlm.label_id
+<span class="kw">WHERE</span> t.user_id = <span class="num">1</span> <span class="kw">AND</span> t.status != <span class="str">'cancelled'</span>
+<span class="kw">GROUP BY</span> t.task_id
+<span class="kw">ORDER BY</span>
+    <span class="kw">CASE</span> t.priority
+        <span class="kw">WHEN</span> <span class="str">'critical'</span> <span class="kw">THEN</span> <span class="num">1</span>
+        <span class="kw">WHEN</span> <span class="str">'high'</span>     <span class="kw">THEN</span> <span class="num">2</span>
+        <span class="kw">WHEN</span> <span class="str">'medium'</span>   <span class="kw">THEN</span> <span class="num">3</span>
+        <span class="kw">ELSE</span> <span class="num">4</span>
+    <span class="kw">END</span>,
+    t.due_date <span class="kw">ASC NULLS LAST</span>;</div>
+
+  <h2>Q2 — Dashboard summary (CTE pattern)</h2>
+  <div class="code-block"><span class="kw">WITH</span> task_stats <span class="kw">AS</span> (
+    <span class="kw">SELECT</span>
+        <span class="fn">COUNT</span>(*)                                          <span class="kw">AS</span> total_tasks,
+        <span class="fn">COUNT</span>(*) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> status = <span class="str">'completed'</span>)    <span class="kw">AS</span> completed_tasks,
+        <span class="fn">COUNT</span>(*) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> status = <span class="str">'pending'</span>
+                             <span class="kw">AND</span> due_date < <span class="fn">NOW</span>())         <span class="kw">AS</span> overdue_tasks
+    <span class="kw">FROM</span> tasks <span class="kw">WHERE</span> user_id = <span class="num">1</span>
+),
+course_stats <span class="kw">AS</span> (
+    <span class="kw">SELECT</span>
+        <span class="fn">COUNT</span>(*)                                            <span class="kw">AS</span> total_courses,
+        <span class="fn">ROUND</span>(<span class="fn">AVG</span>(grade_points) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> grade_points <span class="kw">IS NOT NULL</span>), <span class="num">2</span>) <span class="kw">AS</span> gpa
+    <span class="kw">FROM</span> enrolments e <span class="kw">JOIN</span> courses c <span class="kw">ON</span> c.course_id = e.course_id
+    <span class="kw">WHERE</span> e.user_id = <span class="num">1</span> <span class="kw">AND</span> e.academic_year = <span class="num">2024</span>
+),
+fitness_today <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> steps, calories_burned, water_ml
+    <span class="kw">FROM</span> fitness_daily_logs
+    <span class="kw">WHERE</span> user_id = <span class="num">1</span> <span class="kw">AND</span> log_date = CURRENT_DATE
+)
+<span class="kw">SELECT</span> ts.*, cs.*, ft.*
+<span class="kw">FROM</span> task_stats ts
+<span class="kw">CROSS JOIN</span> course_stats cs
+<span class="kw">LEFT JOIN</span>  fitness_today ft <span class="kw">ON TRUE</span>;</div>
+
+  <h2>Q3 — Upcoming events + reminders (next 7 days)</h2>
+  <div class="code-block"><span class="kw">SELECT</span> <span class="str">'event'</span> <span class="kw">AS</span> item_type, e.title, e.starts_at <span class="kw">AS</span> due_at
+<span class="kw">FROM</span> events e
+<span class="kw">WHERE</span> e.user_id = <span class="num">1</span>
+  <span class="kw">AND</span> e.starts_at <span class="kw">BETWEEN</span> <span class="fn">NOW</span>() <span class="kw">AND</span> <span class="fn">NOW</span>() + <span class="kw">INTERVAL</span> <span class="str">'7 days'</span>
+
+<span class="kw">UNION ALL</span>
+
+<span class="kw">SELECT</span> <span class="str">'reminder'</span>, <span class="fn">COALESCE</span>(ev.title, t.title, a.title), r.remind_at
+<span class="kw">FROM</span> reminders r
+<span class="kw">LEFT JOIN</span> events      ev <span class="kw">ON</span> ev.event_id     = r.event_id
+<span class="kw">LEFT JOIN</span> tasks       t  <span class="kw">ON</span> t.task_id       = r.task_id
+<span class="kw">LEFT JOIN</span> assignments a  <span class="kw">ON</span> a.assignment_id  = r.assignment_id
+<span class="kw">WHERE</span> r.user_id = <span class="num">1</span>
+  <span class="kw">AND</span> r.status   = <span class="str">'pending'</span>
+  <span class="kw">AND</span> r.remind_at <span class="kw">BETWEEN</span> <span class="fn">NOW</span>() <span class="kw">AND</span> <span class="fn">NOW</span>() + <span class="kw">INTERVAL</span> <span class="str">'7 days'</span>
+
+<span class="kw">ORDER BY</span> due_at <span class="kw">ASC</span>;</div>
+
+  <h2>Q4 — Course performance summary</h2>
+  <div class="code-block"><span class="kw">SELECT</span>
+    c.course_code, c.course_name, c.credits, e.final_grade, e.grade_points,
+    <span class="fn">COUNT</span>(<span class="kw">DISTINCT</span> a.assignment_id)                                   <span class="kw">AS</span> total_assignments,
+    <span class="fn">COUNT</span>(<span class="kw">DISTINCT</span> a.assignment_id) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> a.is_submitted)   <span class="kw">AS</span> submitted,
+    <span class="fn">ROUND</span>(<span class="fn">AVG</span>(a.obtained_marks / <span class="fn">NULLIF</span>(a.max_marks,<span class="num">0</span>) * <span class="num">100</span>), <span class="num">1</span>)   <span class="kw">AS</span> avg_assignment_pct,
+    <span class="fn">ROUND</span>(
+        <span class="fn">COUNT</span>(ar.record_id) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> ar.is_present)::<span class="type">NUMERIC</span>
+        / <span class="fn">NULLIF</span>(<span class="fn">COUNT</span>(ar.record_id), <span class="num">0</span>) * <span class="num">100</span>, <span class="num">1</span>
+    )                                                                   <span class="kw">AS</span> attendance_pct
+<span class="kw">FROM</span> enrolments e
+<span class="kw">JOIN</span>  courses c              <span class="kw">ON</span> c.course_id    = e.course_id
+<span class="kw">LEFT JOIN</span> assignments a      <span class="kw">ON</span> a.enrolment_id = e.enrolment_id
+<span class="kw">LEFT JOIN</span> attendance_records ar <span class="kw">ON</span> ar.enrolment_id = e.enrolment_id
+<span class="kw">WHERE</span> e.user_id = <span class="num">1</span> <span class="kw">AND</span> e.academic_year = <span class="num">2024</span> <span class="kw">AND</span> e.semester = <span class="num">5</span>
+<span class="kw">GROUP BY</span> c.course_id, e.enrolment_id
+<span class="kw">ORDER BY</span> c.course_name;</div>
+</div>
+
+<!-- ─────────── INDEXES ─────────── -->
+<div id="page-indexes" class="page">
+  <div class="page-title">Indexes & performance tuning</div>
+  <div class="page-subtitle">Every index has a specific query justification. Index proliferation has a write cost — each index here earns its place.</div>
+
+  <div class="card">
+    <table class="idx-table">
+      <thead><tr><th>Index name</th><th>On column(s)</th><th>Type</th><th>Justification</th></tr></thead>
+      <tbody>
+        <tr><td class="idx-name">idx_users_mahe_id</td><td class="idx-on">users(mahe_id)</td><td><span class="badge badge-green">UNIQUE</span></td><td style="color:var(--text2);font-size:12px">Login lookup by MAHE ID</td></tr>
+        <tr><td class="idx-name">idx_users_is_active</td><td class="idx-on">users(is_active)</td><td><span class="badge badge-amber">PARTIAL</span></td><td style="color:var(--text2);font-size:12px">WHERE is_active=TRUE — only indexes ~99% of rows</td></tr>
+        <tr><td class="idx-name">idx_tasks_user_status</td><td class="idx-on">tasks(user_id, status)</td><td><span class="badge badge-blue">COMPOSITE</span></td><td style="color:var(--text2);font-size:12px">Dashboard queries always filter both. Covers most task queries in a single scan.</td></tr>
+        <tr><td class="idx-name">idx_tasks_due_date</td><td class="idx-on">tasks(due_date)</td><td><span class="badge badge-blue">BTREE</span></td><td style="color:var(--text2);font-size:12px">Range scans for "due this week"</td></tr>
+        <tr><td class="idx-name">idx_events_user_starts</td><td class="idx-on">events(user_id, starts_at)</td><td><span class="badge badge-blue">COMPOSITE</span></td><td style="color:var(--text2);font-size:12px">Calendar range queries filtered by user</td></tr>
+        <tr><td class="idx-name">idx_reminders_status</td><td class="idx-on">reminders(status)</td><td><span class="badge badge-amber">PARTIAL</span></td><td style="color:var(--text2);font-size:12px">WHERE status='pending' only — background scheduler hot path</td></tr>
+        <tr><td class="idx-name">idx_fitness_user_date</td><td class="idx-on">fitness_daily_logs(user_id, log_date DESC)</td><td><span class="badge badge-blue">COMPOSITE</span></td><td style="color:var(--text2);font-size:12px">Weekly trend queries with DESC ordering baked in</td></tr>
+        <tr><td class="idx-name">idx_notif_user_unread</td><td class="idx-on">notifications(user_id, is_read)</td><td><span class="badge badge-amber">PARTIAL</span></td><td style="color:var(--text2);font-size:12px">WHERE is_read=FALSE — unread count badge on every page load</td></tr>
+        <tr><td class="idx-name">idx_notes_title_trgm</td><td class="idx-on">notes(title) gin_trgm_ops</td><td><span class="badge badge-purple">GIN</span></td><td style="color:var(--text2);font-size:12px">Fuzzy full-text search via pg_trgm</td></tr>
+        <tr><td class="idx-name">idx_enrolments_year_sem</td><td class="idx-on">enrolments(academic_year, semester)</td><td><span class="badge badge-blue">COMPOSITE</span></td><td style="color:var(--text2);font-size:12px">Filter current semester across all users (admin queries)</td></tr>
+        <tr><td class="idx-name">idx_sessions_expires_at</td><td class="idx-on">user_sessions(expires_at)</td><td><span class="badge badge-blue">BTREE</span></td><td style="color:var(--text2);font-size:12px">Session cleanup job: DELETE WHERE expires_at &lt; NOW()</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─────────── BOTTLENECKS ─────────── -->
+<div id="page-bottlenecks" class="page">
+  <div class="page-title">Bottlenecks & scalability notes</div>
+  <div class="page-subtitle">Honest analysis of where this schema will strain under load, and what to do about it.</div>
+
+  <h2>Identified bottlenecks</h2>
+
+  <div class="card">
+    <div class="card-title">⚡ Dashboard query (Q2) — fan-out CTEs</div>
+    <div class="card-desc">The dashboard runs 4–5 subqueries on every page load. At scale (&gt;100k users), this becomes expensive. <strong>Mitigation:</strong> materialise the dashboard row in Redis (TTL 60s). Invalidate on task/fitness/grade write. The schema supports this because all source tables have clear created_at/updated_at audit columns.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚡ Reminder scheduler hot path</div>
+    <div class="card-desc">A background cron that polls <code>reminders WHERE status='pending' AND remind_at &lt;= NOW()</code> will hammer this table at scale. <strong>Mitigation:</strong> The partial index on <code>status='pending'</code> helps. At high scale, migrate to a proper job queue (pg_cron, BullMQ, or Temporal) and only scan rows in the next N minutes, not all pending.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚡ attendance_records growth</div>
+    <div class="card-desc">At 1,000 students × 5 courses × 100 classes = 500k rows/semester. Over 4 years: ~2M rows. <strong>Mitigation:</strong> Partition by <code>academic_year</code> using PostgreSQL range partitioning. Old semesters become read-only, hot semesters stay small.</div>
+    <div class="code-block"><span class="kw">CREATE TABLE</span> attendance_records_2024
+    <span class="kw">PARTITION OF</span> attendance_records
+    <span class="kw">FOR VALUES FROM</span> (<span class="num">2024</span>) <span class="kw">TO</span> (<span class="num">2025</span>);  <span class="cmt">-- if partitioned by year</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚡ notifications table — unbounded growth</div>
+    <div class="card-desc">Notifications accumulate indefinitely. <strong>Mitigation:</strong> Add a scheduled job to archive/delete notifications older than 90 days where is_read=TRUE. Or use a <code>expires_at</code> column and filter on it.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚡ updated_at maintenance</div>
+    <div class="card-desc">PostgreSQL does not auto-update <code>updated_at</code> columns. <strong>Mitigation:</strong> Create a reusable trigger function and attach it to every table that has <code>updated_at</code>.</div>
+    <div class="code-block"><span class="kw">CREATE OR REPLACE FUNCTION</span> <span class="fn">set_updated_at</span>()
+<span class="kw">RETURNS TRIGGER AS</span> $$
+<span class="kw">BEGIN</span>
+    NEW.updated_at = <span class="fn">NOW</span>();
+    <span class="kw">RETURN</span> NEW;
+<span class="kw">END</span>;
+$$ <span class="kw">LANGUAGE</span> plpgsql;
+
+<span class="kw">CREATE TRIGGER</span> trg_tasks_updated_at
+<span class="kw">BEFORE UPDATE ON</span> tasks
+<span class="kw">FOR EACH ROW EXECUTE FUNCTION</span> <span class="fn">set_updated_at</span>();
+<span class="cmt">-- Repeat for: notes, events, projects, fitness_daily_logs, users, etc.</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✅ Scalability strengths</div>
+    <div class="card-desc">
+      — All high-cardinality queries are indexed on (user_id + discriminator) composites, limiting scans to per-user data.<br>
+      — No computed columns stored in the DB (attendance %, GPA, task completion %) — these are always calculated at query time or cached in application layer.<br>
+      — ENUM types are schema-level, avoiding expensive string comparisons on status columns.<br>
+      — The schema is connection-pool friendly — no session-local state, all queries are pure reads/writes.
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+function show(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>
